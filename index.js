@@ -3,11 +3,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const express = require('express');
 
-// --- CONFIGURAÇÃO PARA MANTER ONLINE NO RENDER ---
+// --- MANTER ONLINE NO RENDER (PORTA 3000) ---
 const app = express();
-app.get('/', (req, res) => res.send('Bot da Stumble Ping está Online! 🚀'));
-app.listen(3000, () => console.log('🌐 Servidor Web ativo na porta 3000'));
-// ------------------------------------------------
+app.get('/', (req, res) => res.send('Stumble Ping Bot Online!'));
+app.listen(3000);
 
 const client = new Client({
     intents: [
@@ -18,10 +17,9 @@ const client = new Client({
     ]
 });
 
-// Coleções para Comandos e Status
 client.commands = new Collection();
 
-// --- HANDLER DE COMANDOS ---
+// HANDLER DE COMANDOS
 const commandsPath = path.join(__dirname, 'commands');
 if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
@@ -30,13 +28,11 @@ if (fs.existsSync(commandsPath)) {
         const command = require(filePath);
         if ('data' in command && 'execute' in command) {
             client.commands.set(command.data.name, command);
-        } else {
-            console.log(`[AVISO] O comando em ${filePath} está faltando "data" ou "execute".`);
         }
     }
 }
 
-// --- HANDLER DE EVENTOS ---
+// HANDLER DE EVENTOS
 const eventsPath = path.join(__dirname, 'events');
 if (fs.existsSync(eventsPath)) {
     const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
@@ -51,11 +47,8 @@ if (fs.existsSync(eventsPath)) {
     }
 }
 
-// Evento padrão de inicialização
 client.once('ready', () => {
-    console.log(`✅ Logado com sucesso como ${client.user.tag}`);
-    console.log(`🤖 Bot carregado com ${client.commands.size} comandos.`);
+    console.log(`✅ Logado como ${client.user.tag}`);
 });
 
-// Login usando a variável de ambiente do Render
 client.login(process.env.TOKEN);
