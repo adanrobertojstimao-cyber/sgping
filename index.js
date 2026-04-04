@@ -1,15 +1,19 @@
-const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const mongoose = require('mongoose');
 const express = require('express');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const app = express();
-app.get('/', (req, res) => res.send('Bot Online e Protegido! 🛡️'));
+app.get('/', (req, res) => res.send('Bot Online! 🚀'));
 app.listen(3000);
 
 const client = new Client({
     intents: [
-        GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.DirectMessages
     ]
 });
@@ -30,39 +34,35 @@ const UserSchema = new mongoose.Schema({
         atualmente: { type: Boolean, default: false }
     }
 });
-const User = mongoose.model('User', UserSchema);
+const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
-// --- RASTREIO DE INFLU ---
-client.on('guildMemberUpdate', async (oldMember, newMember) => {
-    const cargoInflu = '1475012884651053168';
-    const jaTinha = oldMember.roles.cache.has(cargoInflu);
-    const temAgora = newMember.roles.cache.has(cargoInflu);
-
-    if (!jaTinha && temAgora) {
-        await User.findOneAndUpdate({ userId: newMember.id }, 
-            { 'influHistory.foiInflu': true, 'influHistory.inicio': new Date(), 'influHistory.atualmente': true }, 
-            { upsert: true });
-    } else if (jaTinha && !temAgora) {
-        await User.findOneAndUpdate({ userId: newMember.id }, { 'influHistory.fim': new Date(), 'influHistory.atualmente': false });
-    }
-});
-
-// (Mantenha aqui seu código de carregar comandos...)
-// --- HANDLER DE EVENTOS ---
-// HANDLER DE EVENTOS
-const eventsPath = path.join(__dirname, 'events');
-if (fs.existsSync(eventsPath)) {
-    const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
-@@ -51,11 +47,8 @@ if (fs.existsSync(eventsPath)) {
+// --- CARREGAR COMANDOS ---
+client.commands = new Collection();
+const foldersPath = path.join(__dirname, 'commands');
+if (fs.existsSync(foldersPath)) {
+    const commandFiles = fs.readdirSync(foldersPath).filter(file => file.endsWith('.js'));
+    for (const file of commandFiles) {
+        const filePath = path.join(foldersPath, file);
+        const command = require(filePath);
+        if ('data' in command && 'execute' in command) {
+            client.commands.set(command.data.name, command);
+        }
     }
 }
 
-// Evento padrão de inicialização
-client.once('ready', () => {
-    console.log(`✅ Logado com sucesso como ${client.user.tag}`);
-    console.log(`🤖 Bot carregado com ${client.commands.size} comandos.`);
-    console.log(`✅ Logado como ${client.user.tag}`);
-});
+// --- CARREGAR EVENTOS ---
+const eventsPath = path.join(__dirname, 'events');
+if (fs.existsSync(eventsPath)) {
+    const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+    for (const file of eventFiles) {
+        const filePath = path.join(eventsPath, file);
+        const event = require(filePath);
+        if (event.once) {
+            client.once(event.name, (...args) => event.execute(...args));
+        } else {
+            client.on(event.name, (...args) => event.execute(...args));
+        }
+    }
+}
 
-// Login usando a variável de ambiente do Render
 client.login(process.env.TOKEN);
