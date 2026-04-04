@@ -1,6 +1,20 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const mongoose = require('mongoose');
-const User = mongoose.model('User');
+
+// Definindo o Schema aqui para o deploy-commands não dar erro
+const UserSchema = new mongoose.Schema({
+    userId: String,
+    advs: [{ data: String, motivo: String, autor: String, expiresAt: Date }],
+    influHistory: {
+        foiInflu: { type: Boolean, default: false },
+        inicio: Date,
+        fim: Date,
+        atualmente: { type: Boolean, default: false }
+    }
+});
+
+// Isso evita o erro de "Schema hasn't been registered"
+const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
 module.exports = {
     data: new SlashCommandBuilder()
