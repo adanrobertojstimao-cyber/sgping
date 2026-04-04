@@ -1,7 +1,7 @@
-const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ChannelType, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ChannelType, ButtonBuilder, ButtonStyle, Collection } = require('discord.js');
 
-// Mapa para guardar os dados entre um modal e outro
 const userData = new Map();
+const userLogs = new Map(); // Para o sistema de advertência (Simulado sem DB por enquanto)
 
 module.exports = {
     name: 'interactionCreate',
@@ -11,7 +11,7 @@ module.exports = {
             if (command) await command.execute(interaction);
         }
 
-        // --- 1. BOTÃO DO PAINEL: CRIA TÓPICO ---
+        // --- BOTÃO DO PAINEL ---
         if (interaction.isButton() && interaction.customId === 'confirmar_tz') {
             const thread = await interaction.channel.threads.create({
                 name: `torneio-${interaction.user.username}`,
@@ -21,88 +21,74 @@ module.exports = {
 
             await thread.members.add(interaction.user.id);
 
+            const embedAviso = new EmbedBuilder()
+                .setColor('Yellow')
+                .setDescription(`**Atenção!** O numero de usos só são diminuidos se o torneio for confirmado...\n\nNo link da imagem você pode mandar o link ou mandar na DM.`);
+
             const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId('abrir_modal_1')
-                    .setLabel('Começar Formulário')
-                    .setStyle(ButtonStyle.Primary)
+                new ButtonBuilder().setCustomId('abrir_modal_1').setLabel('1. Informações').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('abrir_modal_2_direto').setLabel('2. Detalhes').setStyle(ButtonStyle.Secondary)
             );
 
-            await thread.send({ content: `Olá ${interaction.user}, clique no botão para iniciar o preenchimento.`, components: [row] });
+            await thread.send({ content: `Olá ${interaction.user}`, embeds: [embedAviso], components: [row] });
             await interaction.reply({ content: `Tópico aberto: ${thread}`, ephemeral: true });
         }
 
-        // --- 2. ABRE O PRIMEIRO MODAL ---
+        // --- LÓGICA DO MODAL 1 ---
         if (interaction.isButton() && interaction.customId === 'abrir_modal_1') {
-            const modal = new ModalBuilder().setCustomId('modal_1').setTitle('Informações Gerais (1/2)');
-
-            const inputs = [
-                new TextInputBuilder().setCustomId('nome_dc').setLabel("Nome no Discord").setStyle(TextInputStyle.Short).setRequired(true),
-                new TextInputBuilder().setCustomId('nome_jogo').setLabel("Nome no Jogo").setStyle(TextInputStyle.Short).setRequired(true),
-                new TextInputBuilder().setCustomId('titulo').setLabel("Título do Torneio").setStyle(TextInputStyle.Short).setRequired(true),
-                new TextInputBuilder().setCustomId('imagem').setLabel("Link da Imagem/Capa").setStyle(TextInputStyle.Short).setRequired(true)
-            ];
-
-            modal.addComponents(inputs.map(i => new ActionRowBuilder().addComponents(i)));
+            const modal = new ModalBuilder().setCustomId('modal_1').setTitle('Informações (1/2)');
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('nome_dc').setLabel("Nome DC").setStyle(TextInputStyle.Short)),
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('nome_jogo').setLabel("Nome Jogo").setStyle(TextInputStyle.Short)),
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('titulo').setLabel("Título").setStyle(TextInputStyle.Short)),
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('imagem').setLabel("Link Imagem").setStyle(TextInputStyle.Short))
+            );
             await interaction.showModal(modal);
         }
 
-        // --- 3. RECEBE MODAL 1 E ABRE O MODAL 2 ---
+        // --- RECEBE MODAL 1 -> SALVA E AVISA ---
         if (interaction.isModalSubmit() && interaction.customId === 'modal_1') {
-            // SALVA OS DADOS DO PRIMEIRO MODAL
             userData.set(interaction.user.id, {
                 dc: interaction.fields.getTextInputValue('nome_dc'),
                 jogo: interaction.fields.getTextInputValue('nome_jogo'),
                 titulo: interaction.fields.getTextInputValue('titulo'),
                 imagem: interaction.fields.getTextInputValue('imagem')
             });
+            await interaction.reply({ content: "✅ Parte 1 salva! Agora clique no botão **2. Detalhes**.", ephemeral: true });
+        }
 
-            const modal2 = new ModalBuilder().setCustomId('modal_2').setTitle('Detalhes do Torneio (2/2)');
+        // --- ABRE MODAL 2 ---
+        if (interaction.isButton() && interaction.customId === 'abrir_modal_2_direto') {
+            if (!userData.has(interaction.user.id)) return interaction.reply({ content: "Preencha a Parte 1 primeiro!", ephemeral: true });
             
-            const inputs2 = [
-                new TextInputBuilder().setCustomId('emotes').setLabel("Emotes Permitidos").setStyle(TextInputStyle.Short).setRequired(true),
-                new TextInputBuilder().setCustomId('rodadas').setLabel("Quantidade de Rodadas").setStyle(TextInputStyle.Short).setRequired(true),
-                new TextInputBuilder().setCustomId('inscricao').setLabel("Data/Hora Inscrição").setPlaceholder('00/00 - 00:00').setStyle(TextInputStyle.Short).setRequired(true),
-                new TextInputBuilder().setCustomId('inicio').setLabel("Data/Hora Início").setPlaceholder('00/00 - 00:00').setStyle(TextInputStyle.Short).setRequired(true)
-            ];
-
-            modal2.addComponents(inputs2.map(i => new ActionRowBuilder().addComponents(i)));
+            const modal2 = new ModalBuilder().setCustomId('modal_2').setTitle('Detalhes (2/2)');
+            modal2.addComponents(
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('emotes').setLabel("Emotes").setStyle(TextInputStyle.Short)),
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('rodadas').setLabel("Rodadas").setStyle(TextInputStyle.Short)),
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('inscricao').setLabel("Inscrição").setStyle(TextInputStyle.Short)),
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('inicio').setLabel("Início").setStyle(TextInputStyle.Short))
+            );
             await interaction.showModal(modal2);
         }
 
-        // --- 4. RECEBE MODAL 2 E GERA O EMBED COMPLETO ---
+        // --- RECEBE MODAL 2 -> GERA EMBED FINAL ---
         if (interaction.isModalSubmit() && interaction.customId === 'modal_2') {
-            const data1 = userData.get(interaction.user.id);
-            if (!data1) return interaction.reply({ content: "Erro ao recuperar dados. Tente novamente.", ephemeral: true });
-
+            const d1 = userData.get(interaction.user.id);
             const canalLog = interaction.client.channels.cache.get('1489831739512586390');
-
-            const embedFinal = new EmbedBuilder()
-                .setTitle('📢 NOVA SOLICITAÇÃO DE TORNEIO')
-                .setColor('Blue')
-                .setThumbnail(data1.imagem)
-                .addFields(
-                    { name: '👤 Solicitante', value: `${interaction.user} (\`${data1.dc}\`)`, inline: true },
-                    { name: '🎮 Nick no Jogo', value: data1.jogo, inline: true },
-                    { name: '🏆 Título', value: data1.titulo, inline: false },
-                    { name: '🎭 Emotes', value: interaction.fields.getTextInputValue('emotes'), inline: true },
-                    { name: '🔄 Rodadas', value: interaction.fields.getTextInputValue('rodadas'), inline: true },
-                    { name: '📝 Inscrição', value: interaction.fields.getTextInputValue('inscricao'), inline: true },
-                    { name: '🚀 Início', value: interaction.fields.getTextInputValue('inicio'), inline: true }
-                )
-                .setImage(data1.imagem)
-                .setFooter({ text: 'Stumble Ping • Sistema de Torneios' })
-                .setTimestamp();
-
-            if (canalLog) {
-                await canalLog.send({ content: `Novo torneio enviado por ${interaction.user}`, embeds: [embedFinal] });
-            }
-
-            await interaction.reply({ content: '✅ Tudo pronto! Suas informações foram enviadas para a staff.', ephemeral: true });
             
-            // Limpa a memória e fecha o tópico
-            userData.delete(interaction.user.id);
-            setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+            const embed = new EmbedBuilder()
+                .setTitle('🏆 NOVO TORNEIO')
+                .addFields(
+                    { name: '👤 Usuário', value: `${interaction.user}`, inline: true },
+                    { name: '🎮 Jogo', value: d1.jogo, inline: true },
+                    { name: '🏆 Título', value: d1.titulo },
+                    { name: '🎭 Emotes', value: interaction.fields.getTextInputValue('emotes'), inline: true },
+                    { name: '📅 Início', value: interaction.fields.getTextInputValue('inicio'), inline: true }
+                ).setImage(d1.imagem);
+
+            if (canalLog) await canalLog.send({ embeds: [embed] });
+            await interaction.reply({ content: "Enviado! O tópico fechará em breve.", ephemeral: true });
+            setTimeout(() => interaction.channel.delete(), 5000);
         }
     }
 };
