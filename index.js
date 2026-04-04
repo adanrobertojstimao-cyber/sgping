@@ -48,5 +48,21 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
 });
 
 // (Mantenha aqui seu código de carregar comandos...)
+// --- HANDLER DE EVENTOS ---
+// HANDLER DE EVENTOS
+const eventsPath = path.join(__dirname, 'events');
+if (fs.existsSync(eventsPath)) {
+    const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+@@ -51,11 +47,8 @@ if (fs.existsSync(eventsPath)) {
+    }
+}
 
+// Evento padrão de inicialização
+client.once('ready', () => {
+    console.log(`✅ Logado com sucesso como ${client.user.tag}`);
+    console.log(`🤖 Bot carregado com ${client.commands.size} comandos.`);
+    console.log(`✅ Logado como ${client.user.tag}`);
+});
+
+// Login usando a variável de ambiente do Render
 client.login(process.env.TOKEN);
