@@ -4,50 +4,34 @@ const express = require('express');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// --- SISTEMA ANTI-SLEEP (UPTIMEROBOT) ---
+// --- SISTEMA WEB (RENDER + UPTIME) ---
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 10000; // Render usa a 10000 por padrão
 
-app.get('/', (req, res) => {
-    res.send('Bot Online! 🚀');
-    console.log('📡 Keep-alive: Recebi um ping do UptimeRobot!');
+app.get('/', (req, res) => res.status(200).send('SG-PING Online! 🚀'));
+
+app.listen(port, '0.0.0.0', () => {
+    console.log(`🌐 Servidor Web ativo na porta ${port}`);
 });
 
-app.listen(port, () => {
-    console.log(`🌐 Servidor Web rodando na porta ${port}`);
-});
-
-// --- CONFIGURAÇÃO DO CLIENTE ---
+// --- CLIENTE DISCORD ---
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.DirectMessages
+        GatewayIntentBits.GuildMembers
     ]
 });
 
-// --- CONEXÃO MONGODB ---
+// --- MONGO DB ---
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('🍃 Banco de dados conectado!'))
+    .then(() => console.log('🍃 MongoDB Conectado!'))
     .catch(err => console.error('❌ Erro Mongo:', err));
 
-// --- MODELO DO USUÁRIO (SCHEMA) ---
-const UserSchema = new mongoose.Schema({
-    userId: String,
-    advs: [{ data: String, motivo: String, autor: String, expiresAt: Date }],
-    influHistory: {
-        foiInflu: { type: Boolean, default: false },
-        inicio: Date,
-        fim: Date,
-        atualmente: { type: Boolean, default: false }
-    }
-});
-const User = mongoose.models.User || mongoose.model('User', UserSchema);
-
-// --- CARREGAR COMANDOS ---
+// --- CARREGAR COMANDOS E EVENTOS ---
 client.commands = new Collection();
+// (Mantenha seu código atual de carregar pastas aqui embaixo...)
 const foldersPath = path.join(__dirname, 'commands');
 if (fs.existsSync(foldersPath)) {
     const commandFiles = fs.readdirSync(foldersPath).filter(file => file.endsWith('.js'));
@@ -60,28 +44,15 @@ if (fs.existsSync(foldersPath)) {
     }
 }
 
-// --- CARREGAR EVENTOS ---
 const eventsPath = path.join(__dirname, 'events');
 if (fs.existsSync(eventsPath)) {
     const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
     for (const file of eventFiles) {
         const filePath = path.join(eventsPath, file);
         const event = require(filePath);
-        if (event.once) {
-            client.once(event.name, (...args) => event.execute(...args));
-        } else {
-            client.on(event.name, (...args) => event.execute(...args));
-        }
+        if (event.once) client.once(event.name, (...args) => event.execute(...args));
+        else client.on(event.name, (...args) => event.execute(...args));
     }
 }
 
-// --- LOGIN COM TRATAMENTO DE ERRO ---
-console.log('Attempting to login to Discord...');
-client.login(process.env.TOKEN)
-    .then(() => {
-        console.log(`✅ Logado com sucesso como ${client.user.tag}!`);
-    })
-    .catch((err) => {
-        console.error('❌ ERRO CRÍTICO NO LOGIN:');
-        console.error(err);
-    });
+client.login(process.env.TOKEN).catch(console.error);
