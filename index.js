@@ -4,10 +4,20 @@ const express = require('express');
 const fs = require('node:fs');
 const path = require('node:path');
 
+// --- SISTEMA ANTI-SLEEP (UPTIMEROBOT) ---
 const app = express();
-app.get('/', (req, res) => res.send('Bot Online! 🚀'));
-app.listen(3000);
+const port = process.env.PORT || 3000;
 
+app.get('/', (req, res) => {
+    res.send('Bot Online! 🚀');
+    console.log('📡 Keep-alive: Recebi um ping do UptimeRobot!');
+});
+
+app.listen(port, () => {
+    console.log(`🌐 Servidor Web rodando na porta ${port}`);
+});
+
+// --- CONFIGURAÇÃO DO CLIENTE ---
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -23,7 +33,7 @@ mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('🍃 Banco de dados conectado!'))
     .catch(err => console.error('❌ Erro Mongo:', err));
 
-// --- MODELO DO USUÁRIO ---
+// --- MODELO DO USUÁRIO (SCHEMA) ---
 const UserSchema = new mongoose.Schema({
     userId: String,
     advs: [{ data: String, motivo: String, autor: String, expiresAt: Date }],
@@ -65,15 +75,13 @@ if (fs.existsSync(eventsPath)) {
     }
 }
 
-// ... (resto do seu código acima)
-
+// --- LOGIN COM TRATAMENTO DE ERRO ---
 console.log('Attempting to login to Discord...');
-
 client.login(process.env.TOKEN)
     .then(() => {
-        console.log('✅ LOGIN EXECUTADO COM SUCESSO!');
+        console.log(`✅ Logado com sucesso como ${client.user.tag}!`);
     })
     .catch((err) => {
-        console.error('❌ ERRO NO LOGIN DO DISCORD:');
+        console.error('❌ ERRO CRÍTICO NO LOGIN:');
         console.error(err);
     });
