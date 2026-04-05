@@ -65,4 +65,15 @@ if (fs.existsSync(eventsPath)) {
     }
 }
 
-client.login(process.env.TOKEN);
+// ... (resto do seu código acima)
+
+console.log('Attempting to login to Discord...');
+
+client.login(process.env.TOKEN)
+    .then(() => {
+        console.log('✅ LOGIN EXECUTADO COM SUCESSO!');
+    })
+    .catch((err) => {
+        console.error('❌ ERRO NO LOGIN DO DISCORD:');
+        console.error(err);
+    });
